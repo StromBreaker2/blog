@@ -6,7 +6,7 @@
 4) git clone https://github.com/StromBreaker2/blog.git
 5) cd blog
 6) nano .env
-7) MONGO_URI=mongodb+srv://arkfilmers_db_user:12345@cluster0.8nshzyu.mongodb.net/?appName=Cluster0/products?retryWrites=true&w=majority
+7) MONGO_URI=mongodb+srv://sushantkoul001_db_user:sushant123@cluster0.f3aovsb.mongodb.net/cc-blog?appName=Cluster0
     PORT=3000
 8) npm install
 9) nohup node server.js &
