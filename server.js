@@ -1,72 +1,62 @@
 const express = require("express");
-const sqlite3 = require("sqlite3").verbose();
+const mongoose = require("mongoose");
 const path = require("path");
+require("dotenv").config();
 
 const app = express();
 app.use(express.json());
 app.use(express.static("public"));
 
-// Initialize SQLite database
-const dbPath = path.resolve(__dirname, "blog.db");
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error("Error opening database", err.message);
-  } else {
-    console.log("Connected to the SQLite database.");
-    db.run(`CREATE TABLE IF NOT EXISTS posts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT NOT NULL,
-      content TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-  }
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log("Connected to MongoDB Atlas."))
+  .catch((err) => {
+    console.error("ERROR: Could not connect to MongoDB.", err.message);
+    process.exit(1);
+  });
+
+const postSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  content: { type: String, required: true },
+  created_at: { type: Date, default: Date.now }
 });
 
-// Create a new post
-app.post("/api/posts", (req, res) => {
+const Post = mongoose.model("Post", postSchema);
+
+app.post("/api/posts", async (req, res) => {
   const { title, content } = req.body;
   if (!title || !content) {
     return res.status(400).json({ error: "Title and content are required" });
   }
-  
-  const query = `INSERT INTO posts (title, content) VALUES (?, ?)`;
-  db.run(query, [title, content], function(err) {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
-    res.json({ id: this.lastID, title, content });
-  });
+  try {
+    const post = await Post.create({ title, content });
+    res.json(post);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// Get all posts
-app.get("/api/posts", (req, res) => {
-  const query = `SELECT * FROM posts ORDER BY created_at DESC`;
-  db.all(query, [], (err, rows) => {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
-    res.json(rows);
-  });
+app.get("/api/posts", async (req, res) => {
+  try {
+    const posts = await Post.find().sort({ created_at: -1 });
+    res.json(posts);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// Delete a post
-app.delete("/api/posts/:id", (req, res) => {
-  const query = `DELETE FROM posts WHERE id = ?`;
-  db.run(query, req.params.id, function(err) {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
-    if (this.changes === 0) {
+app.delete("/api/posts/:id", async (req, res) => {
+  try {
+    const result = await Post.findByIdAndDelete(req.params.id);
+    if (!result) {
       return res.status(404).json({ error: "Post not found" });
     }
     res.json({ message: "Post deleted successfully" });
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT,"0.0.0.0", () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });
